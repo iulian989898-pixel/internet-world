@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0c101b">
+  <meta name="theme-color" content="#05070d">
   <meta name="description" content="20 ridiculous questions. 3 impossible choices. Find out how normal you are compared to the internet.">
   <meta property="og:title" content="THE INTERNET DECIDES — How Normal Are You?">
   <meta property="og:description" content="Answer 20 impossible questions and see how your brain compares with the rest of the internet.">
@@ -12,26 +12,23 @@
   <title>THE INTERNET DECIDES — How Normal Are You?</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/v3.css">
+  <script defer src="/sky.js"></script>
   <script defer src="/app.js"></script>
 </head>
 <body>
-  <div class="orb orb-one" aria-hidden="true"></div>
-  <div class="orb orb-two" aria-hidden="true"></div>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="The Internet Decides home">
-      <span class="brand-mark">◎</span><span>THE INTERNET<span class="brand-accent"> DECIDES</span></span>
-    </a>
-  </header>
+  <div id="spaceBackdrop" class="space-backdrop" aria-hidden="true"></div>
   <main class="layout">
     <section class="game-shell">
       <div class="game-topline">
-        <span class="quiz-status"><span class="status-pip"></span> THE NORMALITY EXPERIMENT</span>
-        <span id="stageLabel">LOADING...</span>
+        <a class="quiz-identity" href="/" aria-label="The Internet Decides home"><span class="identity-symbol" aria-hidden="true">✦</span> THE INTERNET <span class="identity-accent">DECIDES</span></a>
+        <span id="stageLabel" class="stage-label">LOADING...</span>
       </div>
       <div class="progress-track"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
       <div id="quizScreen" class="quiz-screen" hidden>
-        <div class="question-meta"><span id="categoryLabel" class="category"></span><span class="three-options">PICK ONE. NO TAKEBACKS.</span></div>
+        <div class="question-meta"><span id="categoryLabel" class="category"></span></div>
         <h2 id="questionTitle"></h2>
+        <p class="question-subtitle">Pick one answer. Then see what the internet chose.</p>
         <div id="answers" class="answers"></div>
         <div id="afterVote" class="after-vote" hidden>
           <div class="vote-note"><span id="voteMessage"></span><span id="totalVotes" class="count-text"></span></div>
@@ -42,7 +39,7 @@
             <button id="nextButton" class="primary-button" type="button">NEXT QUESTION ↗</button>
           </div>
         </div>
-        <p id="hintText" class="hint">THE INTERNET'S ANSWERS STAY HIDDEN UNTIL YOU VOTE.</p>
+        <p id="hintText" class="hint">Your choice comes first. The crowd comes after.</p>
       </div>
       <div id="resultScreen" class="result-screen" hidden>
         <div class="finish-eyebrow">✳ EXPERIMENT COMPLETE ✳</div>
@@ -93,7 +90,7 @@
       <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div><p>CONNECTING TO THE INTERNET'S BRAINS...</p></div>
     </section>
   </main>
-  <footer class="minimal-footer"><a href="/legal.html">LEGAL &amp; PRIVACY</a></footer>
+  <footer class="minimal-footer"><span>Twenty questions. No right answers.</span><a href="/legal.html">Legal &amp; Privacy</a></footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
