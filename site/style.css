@@ -44,3 +44,8 @@ footer.minimal-footer a:hover{color:var(--lime)}
 
 /* Optional instant advance: manual NEXT alongside the 20s countdown. */
 .auto-advance .primary-button{margin-top:17px;min-height:52px;justify-content:center;font-size:13px}
+
+/* A clear replay action appears after completing the quiz. */
+.play-again{margin-top:8px;justify-content:center;gap:12px;border-color:#9bcf72;background:#26372c;color:#ddffb8}
+.play-again:hover{background:#324a35}
+.replay-note{margin:0;color:#a7b5c4;font-size:11px;line-height:1.5;text-align:center}
