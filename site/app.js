@@ -224,7 +224,7 @@ async function nextQuestion(){
   }
 }
 function rarityText(r){
-  if(r.rarityPercent===null||r.comparisonSize<30)return "Your rarity comparison unlocks once 30 people complete the quiz. Yours is safely saved.";
+  if(r.rarityPercent===null||r.comparisonSize<30)return "Your rarity comparison unlocks once 30 first-time players complete the quiz. Yours is safely saved.";
   return "Only "+Number(r.rarityPercent).toFixed(1)+"% of first-time players scored the same or less normal than you (at the time of your result).";
 }
 function paintCard(prefix,r){
