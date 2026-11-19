@@ -5,7 +5,7 @@
  * No Netlify, PocketBase, Docker, API keys, or external database needed.
  */
 import http from "node:http";
-import {readFile,writeFile,rename,mkdir,stat} from "node:fs/promises";
+import {readFile,stat} from "node:fs/promises";
 import {existsSync,readFileSync,writeFileSync,renameSync} from "node:fs";
 import {join,resolve,extname,sep} from "node:path";
 import {fileURLToPath} from "node:url";
@@ -93,8 +93,7 @@ function json(res,body,status=200){
   res.writeHead(status,{
     "Content-Type":"application/json; charset=utf-8",
     "Cache-Control":"no-store",
-    "X-Content-Type-Options":"nosniff",
-    "Access-Control-Allow-Origin":"null" // localhost-only; no remote access
+    "X-Content-Type-Options":"nosniff"
   });
   res.end(JSON.stringify(body));
 }
@@ -204,7 +203,16 @@ async function staticFile(res,path){
   try {
     const info=await stat(real);
     if(info.isDirectory())real=join(real,"index.html");
-    const content=await readFile(real);
+    let content=await readFile(real);
+    // Mark the preview unmistakably as local, never as real internet-wide polling.
+    if(real===join(SITE,"index.html")){
+      content=Buffer.from(content.toString("utf8").replace(
+        '<main class="layout">',
+        '<div role="status" style="position:relative;z-index:3;text-align:center;padding:9px 14px;background:#182719;color:#d6f7b9;font:12px Arial,sans-serif">LOCAL PREVIEW · Only your PC votes are counted. No internet-wide results.</div><main class="layout">'
+      ));
+    }else if(real===join(SITE,"app.js")){
+      content=Buffer.from(content.toString("utf8").replace('" GLOBAL VOTES"','" LOCAL TEST VOTES"'));
+    }
     res.writeHead(200,{"Content-Type":mime[extname(real).toLowerCase()]||"application/octet-stream","Cache-Control":"no-cache","X-Content-Type-Options":"nosniff"});
     res.end(content);
   }catch{
