@@ -21,18 +21,8 @@
     <a class="brand" href="/" aria-label="The Internet Decides home">
       <span class="brand-mark">◎</span><span>THE INTERNET<span class="brand-accent"> DECIDES</span></span>
     </a>
-    <div class="top-right"><span class="live-dot"></span> THE WORLD IS VOTING <span class="top-star">✳</span> <a href="#how" class="how-link">HOW IT WORKS</a></div>
   </header>
   <main class="layout">
-    <section class="intro">
-      <div class="eyebrow"><span class="eyebrow-line"></span> THE MOST UNNECESSARY TEST ON THE INTERNET</div>
-      <h1>HOW <em>NORMAL</em><br>ARE YOU<span class="question-mark">?</span></h1>
-      <p>20 absurd questions. 3 impossible choices. One completely unscientific verdict on your brain.</p>
-      <div class="intro-pills">
-        <span>⚡ 20 QUICK QUESTIONS</span><span>🌎 REAL GLOBAL VOTES</span><span>🤫 NO RIGHT ANSWERS</span>
-      </div>
-      <div class="corner-note"><span class="asterisk">✳</span> THIS IS NOT A PERSONALITY TEST.<br>IT'S MUCH MORE RIDICULOUS.</div>
-    </section>
     <section class="game-shell">
       <div class="game-topline">
         <span class="quiz-status"><span class="status-pip"></span> THE NORMALITY EXPERIMENT</span>
@@ -45,8 +35,11 @@
         <div id="answers" class="answers"></div>
         <div id="afterVote" class="after-vote" hidden>
           <div class="vote-note"><span id="voteMessage"></span><span id="totalVotes" class="count-text"></span></div>
-          <p class="data-note">🟢 Most popular · 🔵 Middle · 🔴 Least popular. Live results refresh every 20 seconds.</p>
-          <button id="nextButton" class="primary-button" type="button">NEXT QUESTION <span>↗</span></button>
+          <p class="data-note">🟢 Most popular · 🔵 Middle · 🔴 Least popular. Global votes update while you watch.</p>
+          <div class="auto-advance" role="status" aria-live="off">
+            <div class="countdown-label"><span id="autoAction">NEXT QUESTION IN</span><strong><span id="autoSeconds">20</span>s</strong></div>
+            <div class="countdown-track" aria-hidden="true"><div id="countdownFill" class="countdown-fill"></div></div>
+          </div>
         </div>
         <p id="hintText" class="hint">THE INTERNET'S ANSWERS STAY HIDDEN UNTIL YOU VOTE.</p>
       </div>
@@ -95,18 +88,9 @@
         <button id="retryButton" class="primary-button" type="button">TRY AGAIN <span>↗</span></button>
       </div>
       <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div><p>CONNECTING TO THE INTERNET'S BRAINS...</p></div>
-      <div class="game-bottomline"><span>NO ACCOUNT. NO JUDGMENT. PROBABLY.</span><span>© 2026 INTERNET WORLD</span></div>
     </section>
   </main>
-  <section id="how" class="how-section" aria-label="How the game works">
-    <div class="section-heading"><span>THE VERY SIMPLE RULES</span><span>01 / 02 / 03</span></div>
-    <div class="how-grid">
-      <div><div class="step-icon">01 ↗</div><h3>CHOOSE</h3><p>Pick one of three ridiculous answers. Trust your gut. Or don't.</p></div>
-      <div><div class="step-icon">02 ↗</div><h3>DISCOVER</h3><p>See real global percentages immediately after every vote.</p></div>
-      <div><div class="step-icon">03 ↗</div><h3>EXPOSE YOURSELF</h3><p>After 20 answers, get a shareable normality score and challenge your friends.</p></div>
-    </div>
-  </section>
-  <footer><span>MADE FOR CURIOUS HUMANS & CONFUSED ALIENS.</span><div><a href="/legal.html">LEGAL & PRIVACY</a><span>•</span><span>ENTERTAINMENT ONLY</span></div></footer>
+  <footer class="minimal-footer"><a href="/legal.html">LEGAL &amp; PRIVACY</a></footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
