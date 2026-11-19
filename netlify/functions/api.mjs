@@ -32,9 +32,12 @@ async function countsFor(client,questionId) {
   return totals;
 }
 async function start(req){
-  const sess=new URL(req.url).searchParams.get("session");
-  const hash=checkSession(sess);
+  // POST keeps the anonymous session token out of query strings and access logs.
+  const data=await input(req);
+  const hash=checkSession(data.session);
   const db=getDatabase();
+  const finished=await db.pool.query("SELECT * FROM public.quiz_results WHERE session_hash=$1",[hash]);
+  if(finished.rows.length)return respond({version:VERSION,result:exposedResult(finished.rows[0])});
   const row=await db.pool.query("SELECT question_id,option_index FROM public.quiz_votes WHERE session_hash = $1 ORDER BY question_id",[hash]);
   return respond({version:VERSION,questions:QUESTIONS,votes:row.rows.map(r=>({questionId:Number(r.question_id),option:Number(r.option_index)}))});
 }
@@ -55,6 +58,10 @@ async function vote(req){
   let selected=option,alreadyVoted=false;
   try{
     await client.query("BEGIN");
+    // Serializes overlapping vote/finish requests for the same anonymous session.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[hash]);
+    const finished=await client.query("SELECT 1 FROM public.quiz_results WHERE session_hash=$1 LIMIT 1",[hash]);
+    if(finished.rows.length){await client.query("ROLLBACK");return respond({error:"This quiz has already been completed."},409);}
     const previous=await client.query("SELECT option_index FROM public.quiz_votes WHERE session_hash=$1 AND question_id=$2",[hash,questionId]);
     if(previous.rows.length){
       selected=Number(previous.rows[0].option_index);alreadyVoted=true;
@@ -83,8 +90,14 @@ async function finish(req){
   const client=await getDatabase().pool.connect();
   try{
     await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[hash]);
     const existing=await client.query("SELECT * FROM public.quiz_results WHERE session_hash=$1",[hash]);
-    if(existing.rows.length){await client.query("COMMIT");return respond({result:exposedResult(existing.rows[0])});}
+    if(existing.rows.length){
+      // Purge any previously saved individual answers; keep score and global totals.
+      await client.query("DELETE FROM public.quiz_votes WHERE session_hash=$1",[hash]);
+      await client.query("COMMIT");
+      return respond({result:exposedResult(existing.rows[0])});
+    }
     const selection=await client.query("SELECT question_id,option_index FROM public.quiz_votes WHERE session_hash=$1 ORDER BY question_id",[hash]);
     if(selection.rows.length!==QUESTIONS.length){
       await client.query("ROLLBACK");
@@ -106,6 +119,8 @@ async function finish(req){
     const rarityPercent=comparisonSize>=30?Math.round((priorLower+1)/comparisonSize*1000)/10:null;
     const id=randomUUID();
     const inserted=await client.query("INSERT INTO public.quiz_results (id,session_hash,score,matches,title,rarity_percent,comparison_size,quiz_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",[id,hash,score,matches,tier.title,rarityPercent,comparisonSize,VERSION]);
+    // Keep only aggregate vote counts and the saved final score after completion.
+    await client.query("DELETE FROM public.quiz_votes WHERE session_hash=$1",[hash]);
     await client.query("COMMIT");
     return respond({result:exposedResult(inserted.rows[0])});
   }catch(e){
@@ -127,7 +142,12 @@ async function result(req){
 export default async function handler(req){
   const path=new URL(req.url).pathname.split("/").filter(Boolean).pop();
   try {
-    if(req.method==="GET"&&path==="start")return await start(req);
+    // Browser CSRF mitigation; not a replacement for bot mitigation or rate limiting.
+    if(req.method==="POST"){
+      const origin=req.headers.get("origin");
+      if(origin&&origin!==new URL(req.url).origin)return respond({error:"Cross-origin requests are not allowed."},403);
+    }
+    if(req.method==="POST"&&path==="start")return await start(req);
     if(req.method==="GET"&&path==="tally")return await tally(req);
     if(req.method==="GET"&&path==="result")return await result(req);
     if(req.method==="POST"&&path==="vote")return await vote(req);
