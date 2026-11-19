@@ -2,7 +2,7 @@
 "use strict";
 var $=function(id){return document.getElementById(id);};
 var API="/api/";
-var state={session:null,questions:[],votes:new Map(),index:0,choice:null,totals:null,result:null,busy:false,poll:null,toastTimer:null};
+var state={session:null,questions:[],votes:new Map(),index:0,choice:null,totals:null,result:null,busy:false,poll:null,toastTimer:null,advanceTimer:null,countdownTimer:null,advanceAt:null};
 var tiers=[
   {min:0,max:8,title:"MATRIX ERROR",icon:"🛸"},
   {min:9,max:17,title:"ALIEN IN DISGUISE",icon:"👽"},
@@ -44,6 +44,25 @@ function sessionId(){
   } catch(e) {return crypto.randomUUID();}
 }
 function stopPolling(){if(state.poll){clearInterval(state.poll);state.poll=null;}}
+function stopAutoAdvance(){
+  if(state.advanceTimer){clearTimeout(state.advanceTimer);state.advanceTimer=null;}
+  if(state.countdownTimer){clearInterval(state.countdownTimer);state.countdownTimer=null;}
+  state.advanceAt=null;
+}
+function updateCountdown(){
+  if(!state.advanceAt)return;
+  var remaining=Math.max(0,state.advanceAt-Date.now());
+  $("autoSeconds").textContent=Math.ceil(remaining/1000);
+  $("countdownFill").style.width=(remaining/20000*100).toFixed(2)+"%";
+}
+function startAutoAdvance(){
+  stopAutoAdvance();
+  state.advanceAt=Date.now()+20000;
+  $("autoAction").textContent=state.index===state.questions.length-1?"YOUR RESULT IN":"NEXT QUESTION IN";
+  updateCountdown();
+  state.countdownTimer=setInterval(updateCountdown,250);
+  state.advanceTimer=setTimeout(function(){stopAutoAdvance();nextQuestion();},20000);
+}
 function beginPolling(){
   stopPolling();
   state.poll=setInterval(async function(){
@@ -52,7 +71,7 @@ function beginPolling(){
       var q=current(),r=await api("tally?q="+q.id);
       if(q===current()&&state.choice!==null){state.totals=r.totals;drawAnswers();}
     }catch(e){/* transient failures should not discard an accepted vote */}
-  },20000);
+  },8000);
 }
 function initialQuestion(){
   var i=state.questions.findIndex(function(q){return !state.votes.has(q.id);});
@@ -83,12 +102,15 @@ function drawAnswers(){
     var btn=document.createElement("button");btn.type="button";btn.className="answer";
     var mark=document.createElement("span");mark.className="answer-letter";mark.textContent=["A","B","C"][i];btn.append(mark);
     var text=document.createElement("span");text.className="answer-text";text.textContent=option;btn.append(text);
-    if(voted){
+    if(voted&&state.totals){
       btn.disabled=true;btn.classList.add("is-"+ranks[i]);
       if(i===state.choice)btn.classList.add("voted");
       var bar=document.createElement("span");bar.className="bar";bar.style.width=pct[i].toFixed(1)+"%";btn.append(bar);
       var percent=document.createElement("span");percent.className="choice-percent";percent.textContent=pct[i].toFixed(1)+"%";btn.append(percent);
       if(i===state.choice){var yes=document.createElement("span");yes.className="voted-mark";yes.textContent="✓";btn.append(yes);}
+    } else if(voted){
+      btn.disabled=true;
+      if(i===state.choice){var waiting=document.createElement("span");waiting.className="voted-mark";waiting.textContent="✓";btn.append(waiting);}
     } else {
       btn.disabled=state.busy;btn.addEventListener("click",function(){castVote(i);});
       var arrow=document.createElement("span");arrow.className="voted-mark";arrow.textContent="↗";btn.append(arrow);
@@ -96,7 +118,7 @@ function drawAnswers(){
     $("answers").append(btn);
   });
   $("hintText").hidden=voted;
-  $("afterVote").hidden=!voted;
+  $("afterVote").hidden=!(voted&&state.totals);
   if(voted&&state.totals){
     var total=state.totals.reduce(function(a,b){return a+b;},0);
     $("totalVotes").textContent=formatCount(total)+" GLOBAL VOTES";
@@ -106,7 +128,7 @@ function drawAnswers(){
   }
 }
 function drawQuestion(){
-  stopPolling();
+  stopPolling();stopAutoAdvance();
   var q=current();if(!q)return;
   state.choice=state.votes.has(q.id)?state.votes.get(q.id):null;
   state.totals=null;state.busy=false;
@@ -114,12 +136,11 @@ function drawQuestion(){
   progress(state.index/state.questions.length*100);
   $("categoryLabel").textContent=q.emoji+" "+q.category;
   $("questionTitle").textContent=q.question;
-  $("nextButton").textContent=state.index===state.questions.length-1?"REVEAL MY SCORE ↗":"NEXT QUESTION ↗";
   $("afterVote").hidden=true;drawAnswers();show("quizScreen");
   if(state.choice!==null){
     api("tally?q="+q.id).then(function(r){
-      if(q===current()){state.totals=r.totals;drawAnswers();beginPolling();}
-    }).catch(function(){toast("Unable to refresh percentages. Please try again.");});
+      if(q===current()){state.totals=r.totals;drawAnswers();beginPolling();startAutoAdvance();}
+    }).catch(function(){showError("Unable to load the voting results. Please try again.");});
   }
 }
 async function castVote(choice){
@@ -130,23 +151,24 @@ async function castVote(choice){
     if(!data.accepted)throw Error("Vote could not be recorded.");
     state.choice=data.option;state.votes.set(q.id,data.option);state.totals=data.totals;
     stage("QUESTION "+(state.index+1)+" / "+state.questions.length);
-    beginPolling();drawAnswers();
+    beginPolling();drawAnswers();startAutoAdvance();
   }catch(err){
     stage("QUESTION "+(state.index+1)+" / "+state.questions.length);toast(err.message);
   }finally{state.busy=false;if(state.choice===null)drawAnswers();}
 }
 async function nextQuestion(){
   if(state.choice===null||state.busy)return;
+  stopAutoAdvance();stopPolling();
   if(state.index<state.questions.length-1){
     state.index++;drawQuestion();window.scrollTo({top:0,behavior:"smooth"});
   }else{
-    state.busy=true;$("nextButton").disabled=true;$("nextButton").textContent="CALCULATING...";
+    state.busy=true;
     show("loadingScreen");stage("CALCULATING YOUR SCORE");progress(100);
     try{
       var data=await api("finish",{method:"POST",body:JSON.stringify({session:state.session})});
       renderResult(data.result,false);
     }catch(err){showError(err.message);}
-    finally{state.busy=false;$("nextButton").disabled=false;}
+    finally{state.busy=false;}
   }
 }
 function rarityText(r){
@@ -170,14 +192,14 @@ function shareText(){
   return t.icon+" I scored "+r.score+"% NORMAL on THE INTERNET DECIDES! ("+r.title+")\nI agreed with the majority "+r.matches+"/20 times.\nHow normal are YOU? 🤯\n"+resultUrl(r);
 }
 function renderResult(result,shared){
-  stopPolling();state.result=result;stage(shared?"SHARED RESULT":"EXPERIMENT COMPLETE");progress(100);
+  stopPolling();stopAutoAdvance();state.result=result;stage(shared?"SHARED RESULT":"EXPERIMENT COMPLETE");progress(100);
   if(shared){
     paintCard("shared",result);$("sharedTitle").textContent="A "+result.score+"% NORMAL HUMAN.";
     show("sharedScreen");
   }else{paintCard("own",result);show("resultScreen");}
   window.scrollTo({top:0,behavior:"smooth"});
 }
-function showError(msg){stopPolling();stage("SOMETHING WENT WRONG");$("errorText").textContent=msg||"We can't connect right now. Please try again.";show("errorScreen");}
+function showError(msg){stopPolling();stopAutoAdvance();stage("SOMETHING WENT WRONG");$("errorText").textContent=msg||"We can't connect right now. Please try again.";show("errorScreen");}
 async function copyText(text){
   try{await navigator.clipboard.writeText(text);toast("COPIED! SEND IT TO YOUR FRIENDS.");}
   catch(e){window.prompt("Copy this result:",text);}
@@ -191,7 +213,7 @@ function shareLink(kind){
   window.open(target,"_blank","noopener,noreferrer");
 }
 async function init(){
-  show("loadingScreen");stage("CONNECTING...");progress(0);stopPolling();
+  show("loadingScreen");stage("CONNECTING...");progress(0);stopPolling();stopAutoAdvance();
   var shareId=new URLSearchParams(location.search).get("result");
   if(shareId){
     try{
@@ -214,7 +236,6 @@ async function init(){
   }catch(err){showError(err.message);}
 }
 $("retryButton").addEventListener("click",init);
-$("nextButton").addEventListener("click",nextQuestion);
 $("copyResult").addEventListener("click",function(){if(state.result)copyText(shareText());});
 $("shareResult").addEventListener("click",async function(){
   if(!state.result)return;
@@ -228,6 +249,6 @@ $("shareWhatsApp").addEventListener("click",function(){shareLink("wa");});
 $("shareX").addEventListener("click",function(){shareLink("x");});
 $("shareFacebook").addEventListener("click",function(){shareLink("fb");});
 $("startChallenge").addEventListener("click",function(){location.assign("/");});
-window.addEventListener("pagehide",stopPolling);
+window.addEventListener("pagehide",function(){stopPolling();stopAutoAdvance();});
 init();
 })();
