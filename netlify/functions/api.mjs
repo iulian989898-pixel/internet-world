@@ -22,7 +22,7 @@ function exposedResult(row){
   return {
     id:row.id,score:Number(row.score),matches:Number(row.matches),title:row.title,
     rarityPercent:row.rarity_percent==null?null:Number(row.rarity_percent),
-    comparisonSize:Number(row.comparison_size),version:Number(row.quiz_version),
+    comparisonSize:Number(row.comparison_size),version:Number(row.quiz_version),isReplay:Boolean(row.is_replay),
     createdAt:row.created_at
   };
 }
@@ -113,7 +113,7 @@ async function finish(req){
     const answers=new Map(selection.rows.map(r=>[Number(r.question_id),Number(r.option_index)]));
     const {matches,score}=scoreFor(answers,counts);
     const tier=tierFor(score);
-    const prev=await client.query("SELECT count(*)::int AS n, count(*) FILTER (WHERE score<=$1)::int AS lower FROM public.quiz_results WHERE quiz_version=$2",[score,VERSION]);
+    const prev=await client.query("SELECT count(*)::int AS n, count(*) FILTER (WHERE score<=$1)::int AS lower FROM public.quiz_results WHERE quiz_version=$2 AND is_replay=FALSE",[score,VERSION]);
     const prior=Number(prev.rows[0].n),priorLower=Number(prev.rows[0].lower);
     const comparisonSize=prior+1;
     const rarityPercent=comparisonSize>=30?Math.round((priorLower+1)/comparisonSize*1000)/10:null;
@@ -132,6 +132,64 @@ async function finish(req){
     throw e;
   }finally{client.release();}
 }
+
+async function replayFinish(req) {
+  const data=await input(req);
+  const originHash=checkSession(data.originalSession);
+  const sessionHash=checkSession(data.session);
+  if(originHash===sessionHash)return respond({error:"Use a new attempt for replay."},400);
+  if(!Array.isArray(data.answers)||data.answers.length!==QUESTIONS.length||
+      !data.answers.every(value=>Number.isInteger(value)&&value>=0&&value<=2))
+    return respond({error:"Please complete all 20 questions."},400);
+  const client=await getDatabase().pool.connect();
+  try {
+    await client.query("BEGIN");
+    // A replay is connected to a completed first attempt and cannot alter vote totals.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[originHash]);
+    const priorResult=await client.query("SELECT * FROM public.quiz_results WHERE session_hash=$1",[sessionHash]);
+    if(priorResult.rows.length){
+      if(!priorResult.rows[0].is_replay||priorResult.rows[0].origin_session_hash?.trim()!==originHash){
+        await client.query("ROLLBACK");
+        return respond({error:"Attempt identifier already used."},409);
+      }
+      await client.query("COMMIT");
+      return respond({result:exposedResult(priorResult.rows[0])});
+    }
+    const first=await client.query("SELECT id FROM public.quiz_results WHERE session_hash=$1 AND is_replay=FALSE",[originHash]);
+    if(!first.rows.length){
+      await client.query("ROLLBACK");
+      return respond({error:"Complete the quiz once before replaying."},409);
+    }
+    const recent=await client.query("SELECT count(*)::int AS n FROM public.quiz_results WHERE origin_session_hash=$1 AND created_at>now()-interval '24 hours'",[originHash]);
+    if(Number(recent.rows[0].n)>=20){
+      await client.query("ROLLBACK");
+      return respond({error:"You have reached the daily replay limit. Try again tomorrow."},429);
+    }
+    const rows=await client.query("SELECT question_id,option_index,votes FROM public.quiz_totals ORDER BY question_id,option_index");
+    const counts=new Map();
+    for(const row of rows.rows){
+      const id=Number(row.question_id);
+      if(!counts.has(id))counts.set(id,[0,0,0]);
+      counts.get(id)[Number(row.option_index)]=Number(row.votes);
+    }
+    const answers=new Map(QUESTIONS.map((q,i)=>[q.id,data.answers[i]]));
+    const {matches,score}=scoreFor(answers,counts);
+    const previous=await client.query("SELECT count(*)::int AS n, count(*) FILTER (WHERE score<=$1)::int AS lower FROM public.quiz_results WHERE quiz_version=$2 AND is_replay=FALSE",[score,VERSION]);
+    const peers=Number(previous.rows[0].n),sameOrLower=Number(previous.rows[0].lower);
+    const rarityPercent=peers>=30?Math.round(sameOrLower/peers*1000)/10:null;
+    const tier=tierFor(score);
+    const inserted=await client.query(
+      "INSERT INTO public.quiz_results (id,session_hash,score,matches,title,rarity_percent,comparison_size,quiz_version,is_replay,origin_session_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,TRUE,$9) RETURNING *",
+      [randomUUID(),sessionHash,score,matches,tier.title,rarityPercent,peers,VERSION,originHash]
+    );
+    await client.query("COMMIT");
+    return respond({result:exposedResult(inserted.rows[0])});
+  } catch(e) {
+    try{await client.query("ROLLBACK");}catch{}
+    throw e;
+  } finally {client.release();}
+}
+
 async function result(req){
   const id=new URL(req.url).searchParams.get("id");
   if(!id||!UUID.test(id))return respond({error:"Invalid result link"},400);
@@ -148,10 +206,12 @@ export default async function handler(req){
       if(origin&&origin!==new URL(req.url).origin)return respond({error:"Cross-origin requests are not allowed."},403);
     }
     if(req.method==="POST"&&path==="start")return await start(req);
+    if(req.method==="GET"&&path==="questions")return respond({version:VERSION,questions:QUESTIONS});
     if(req.method==="GET"&&path==="tally")return await tally(req);
     if(req.method==="GET"&&path==="result")return await result(req);
     if(req.method==="POST"&&path==="vote")return await vote(req);
     if(req.method==="POST"&&path==="finish")return await finish(req);
+    if(req.method==="POST"&&path==="replay-finish")return await replayFinish(req);
     if(req.method==="GET"&&path==="health"){
       await getDatabase().pool.query("SELECT 1");
       return respond({status:"ok",database:"connected",version:VERSION});
