@@ -59,6 +59,7 @@ function startAutoAdvance(){
   stopAutoAdvance();
   state.advanceAt=Date.now()+20000;
   $("autoAction").textContent=state.index===state.questions.length-1?"YOUR RESULT IN":"NEXT QUESTION IN";
+  $("nextButton").textContent=state.index===state.questions.length-1?"SHOW MY RESULT ↗":"NEXT QUESTION ↗";
   updateCountdown();
   state.countdownTimer=setInterval(updateCountdown,250);
   state.advanceTimer=setTimeout(function(){stopAutoAdvance();nextQuestion();},20000);
@@ -223,7 +224,8 @@ async function init(){
   }
   state.session=sessionId();
   try{
-    var data=await api("start?session="+encodeURIComponent(state.session));
+    var data=await api("start",{method:"POST",body:JSON.stringify({session:state.session})});
+    if(data.result){renderResult(data.result,false);return;}
     state.questions=data.questions||[];
     if(state.questions.length!==20)throw Error("The quiz is being updated. Please try again shortly.");
     state.votes=new Map((data.votes||[]).map(function(v){return [v.questionId,v.option];}));
@@ -236,6 +238,7 @@ async function init(){
   }catch(err){showError(err.message);}
 }
 $("retryButton").addEventListener("click",init);
+$("nextButton").addEventListener("click",nextQuestion);
 $("copyResult").addEventListener("click",function(){if(state.result)copyText(shareText());});
 $("shareResult").addEventListener("click",async function(){
   if(!state.result)return;
