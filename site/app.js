@@ -2,7 +2,7 @@
 "use strict";
 var $=function(id){return document.getElementById(id);};
 var API="/api/";
-var state={session:null,questions:[],votes:new Map(),index:0,choice:null,totals:null,result:null,busy:false,poll:null,toastTimer:null,advanceTimer:null,countdownTimer:null,advanceAt:null};
+var state={session:null,questions:[],votes:new Map(),index:0,choice:null,totals:null,result:null,busy:false,poll:null,toastTimer:null,advanceTimer:null,countdownTimer:null,advanceAt:null,replay:false,replayId:null};
 var tiers=[
   {min:0,max:8,title:"MATRIX ERROR",icon:"🛸"},
   {min:9,max:17,title:"ALIEN IN DISGUISE",icon:"👽"},
@@ -44,6 +44,51 @@ function sessionId(){
   } catch(e) {return crypto.randomUUID();}
 }
 function stopPolling(){if(state.poll){clearInterval(state.poll);state.poll=null;}}
+var REPLAY_PROGRESS_KEY="internet-decides-replay-progress-v1";
+var LAST_RESULT_KEY="internet-decides-last-result-v1";
+function readReplayProgress(){
+  try {
+    var item=JSON.parse(localStorage.getItem(REPLAY_PROGRESS_KEY)||"null");
+    if(!item||!/^[0-9a-f-]{36}$/i.test(item.id)||!Array.isArray(item.answers)||item.answers.length>20)return null;
+    if(!item.answers.every(function(x){return Array.isArray(x)&&Number.isInteger(x[0])&&x[0]>=1&&x[0]<=20&&Number.isInteger(x[1])&&x[1]>=0&&x[1]<=2;}))return null;
+    return item;
+  }catch(e){return null;}
+}
+function saveReplayProgress(){
+  if(!state.replay)return;
+  try{localStorage.setItem(REPLAY_PROGRESS_KEY,JSON.stringify({id:state.replayId,answers:Array.from(state.votes)}));}
+  catch(e){}
+}
+function clearReplayProgress(){
+  try{localStorage.removeItem(REPLAY_PROGRESS_KEY);}catch(e){}
+}
+async function playAgain(){
+  stopPolling();stopAutoAdvance();
+  state.replay=true;state.replayId=crypto.randomUUID();state.votes=new Map();
+  state.index=0;state.choice=null;state.totals=null;state.result=null;state.busy=false;
+  saveReplayProgress();
+  try{history.replaceState(null,"",location.pathname);}catch(e){}
+  show("loadingScreen");stage("PREPARING YOUR REPLAY");progress(0);
+  try{
+    var data=await api("questions");
+    if(!Array.isArray(data.questions)||data.questions.length!==20)throw Error("Questions are temporarily unavailable.");
+    state.questions=data.questions;
+    drawQuestion();
+  }catch(err){showError(err.message);}
+}
+async function requestFinalResult(){
+  if(!state.replay)return api("finish",{method:"POST",body:JSON.stringify({session:state.session})});
+  return api("replay-finish",{method:"POST",body:JSON.stringify({
+    session:state.replayId,originalSession:state.session,
+    answers:state.questions.map(function(q){return state.votes.get(q.id);})
+  })});
+}
+function saveFinalResult(result){
+  if(state.replay)clearReplayProgress();
+  state.replay=false;state.replayId=null;
+  try{localStorage.setItem(LAST_RESULT_KEY,result.id);}catch(e){}
+}
+
 function stopAutoAdvance(){
   if(state.advanceTimer){clearTimeout(state.advanceTimer);state.advanceTimer=null;}
   if(state.countdownTimer){clearInterval(state.countdownTimer);state.countdownTimer=null;}
@@ -148,9 +193,14 @@ async function castVote(choice){
   if(state.busy||state.choice!==null)return;
   var q=current();state.busy=true;drawAnswers();stage("SAVING YOUR VOTE...");
   try{
-    var data=await api("vote",{method:"POST",body:JSON.stringify({session:state.session,questionId:q.id,option:choice})});
-    if(!data.accepted)throw Error("Vote could not be recorded.");
-    state.choice=data.option;state.votes.set(q.id,data.option);state.totals=data.totals;
+    var data=state.replay
+      ? await api("tally?q="+q.id)
+      : await api("vote",{method:"POST",body:JSON.stringify({session:state.session,questionId:q.id,option:choice})});
+    if(!state.replay&&!data.accepted)throw Error("Vote could not be recorded.");
+    state.choice=state.replay?choice:data.option;
+    state.votes.set(q.id,state.choice);
+    if(state.replay)saveReplayProgress();
+    state.totals=data.totals;
     stage("QUESTION "+(state.index+1)+" / "+state.questions.length);
     beginPolling();drawAnswers();startAutoAdvance();
   }catch(err){
@@ -166,7 +216,8 @@ async function nextQuestion(){
     state.busy=true;
     show("loadingScreen");stage("CALCULATING YOUR SCORE");progress(100);
     try{
-      var data=await api("finish",{method:"POST",body:JSON.stringify({session:state.session})});
+      var data=await requestFinalResult();
+      saveFinalResult(data.result);
       renderResult(data.result,false);
     }catch(err){showError(err.message);}
     finally{state.busy=false;}
@@ -174,7 +225,7 @@ async function nextQuestion(){
 }
 function rarityText(r){
   if(r.rarityPercent===null||r.comparisonSize<30)return "Your rarity comparison unlocks once 30 people complete the quiz. Yours is safely saved.";
-  return "Only "+Number(r.rarityPercent).toFixed(1)+"% of completed players scored the same or less normal than you (at the time of your result).";
+  return "Only "+Number(r.rarityPercent).toFixed(1)+"% of first-time players scored the same or less normal than you (at the time of your result).";
 }
 function paintCard(prefix,r){
   var t=tier(r.score),c=color(r.score);
@@ -197,7 +248,9 @@ function renderResult(result,shared){
   if(shared){
     paintCard("shared",result);$("sharedTitle").textContent="A "+result.score+"% NORMAL HUMAN.";
     show("sharedScreen");
-  }else{paintCard("own",result);show("resultScreen");}
+  }else{
+    paintCard("own",result);show("resultScreen");
+  }
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function showError(msg){stopPolling();stopAutoAdvance();stage("SOMETHING WENT WRONG");$("errorText").textContent=msg||"We can't connect right now. Please try again.";show("errorScreen");}
@@ -225,19 +278,51 @@ async function init(){
   state.session=sessionId();
   try{
     var data=await api("start",{method:"POST",body:JSON.stringify({session:state.session})});
-    if(data.result){renderResult(data.result,false);return;}
+    var progressSaved=readReplayProgress();
+    if(data.result && new URLSearchParams(location.search).get("challenge")==="1"){
+      await playAgain();return;
+    }
+    if(data.result && progressSaved){
+      state.replay=true;state.replayId=progressSaved.id;
+      state.votes=new Map(progressSaved.answers);
+      var questionData=await api("questions");
+      state.questions=questionData.questions||[];
+      if(state.questions.length!==20)throw Error("Questions are temporarily unavailable.");
+      state.index=initialQuestion();
+      if(state.index>=20){
+        var replayFinished=await requestFinalResult();
+        saveFinalResult(replayFinished.result);
+        renderResult(replayFinished.result,false);
+      } else drawQuestion();
+      return;
+    }
+    if(data.result){
+      var latest=null;
+      try{latest=localStorage.getItem(LAST_RESULT_KEY);}catch(e){}
+      if(latest){
+        try{
+          var stored=await api("result?id="+encodeURIComponent(latest));
+          renderResult(stored.result,false);return;
+        }catch(e){try{localStorage.removeItem(LAST_RESULT_KEY);}catch(ignore){}}
+      }
+      renderResult(data.result,false);return;
+    }
+    if(progressSaved)clearReplayProgress();
+    state.replay=false;state.replayId=null;
     state.questions=data.questions||[];
     if(state.questions.length!==20)throw Error("The quiz is being updated. Please try again shortly.");
     state.votes=new Map((data.votes||[]).map(function(v){return [v.questionId,v.option];}));
     state.index=initialQuestion();
     if(state.index>=state.questions.length){
       stage("RESTORING YOUR RESULT");
-      var finished=await api("finish",{method:"POST",body:JSON.stringify({session:state.session})});
+      var finished=await requestFinalResult();
+      saveFinalResult(finished.result);
       renderResult(finished.result,false);
     }else drawQuestion();
   }catch(err){showError(err.message);}
 }
 $("retryButton").addEventListener("click",init);
+$("playAgain").addEventListener("click",playAgain);
 $("nextButton").addEventListener("click",nextQuestion);
 $("copyResult").addEventListener("click",function(){if(state.result)copyText(shareText());});
 $("shareResult").addEventListener("click",async function(){
@@ -251,7 +336,7 @@ $("shareResult").addEventListener("click",async function(){
 $("shareWhatsApp").addEventListener("click",function(){shareLink("wa");});
 $("shareX").addEventListener("click",function(){shareLink("x");});
 $("shareFacebook").addEventListener("click",function(){shareLink("fb");});
-$("startChallenge").addEventListener("click",function(){location.assign("/");});
+$("startChallenge").addEventListener("click",function(){location.assign("/?challenge=1");});
 window.addEventListener("pagehide",function(){stopPolling();stopAutoAdvance();});
 init();
 })();
