@@ -41,3 +41,6 @@ footer.minimal-footer a:hover{color:var(--lime)}
   .countdown-label{font-size:9px}
   .countdown-label strong{font-size:20px}
 }
+
+/* Optional instant advance: manual NEXT alongside the 20s countdown. */
+.auto-advance .primary-button{margin-top:17px;min-height:52px;justify-content:center;font-size:13px}
