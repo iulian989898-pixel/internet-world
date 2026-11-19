@@ -159,7 +159,7 @@ function drawAnswers(){
       if(i===state.choice){var waiting=document.createElement("span");waiting.className="voted-mark";waiting.textContent="✓";btn.append(waiting);}
     } else {
       btn.disabled=state.busy;btn.addEventListener("click",function(){castVote(i);});
-      var arrow=document.createElement("span");arrow.className="voted-mark";arrow.textContent="↗";btn.append(arrow);
+      var arrow=document.createElement("span");arrow.className="voted-mark";arrow.textContent="→";btn.append(arrow);
     }
     $("answers").append(btn);
   });
@@ -178,7 +178,7 @@ function drawQuestion(){
   var q=current();if(!q)return;
   state.choice=state.votes.has(q.id)?state.votes.get(q.id):null;
   state.totals=null;state.busy=false;
-  stage("QUESTION "+(state.index+1)+" / "+state.questions.length);
+  stage("Question "+(state.index+1)+" of "+state.questions.length);
   progress(state.index/state.questions.length*100);
   $("categoryLabel").textContent=q.emoji+" "+q.category;
   $("questionTitle").textContent=q.question;
@@ -191,7 +191,7 @@ function drawQuestion(){
 }
 async function castVote(choice){
   if(state.busy||state.choice!==null)return;
-  var q=current();state.busy=true;drawAnswers();stage("SAVING YOUR VOTE...");
+  var q=current();state.busy=true;drawAnswers();stage("Saving vote...");
   try{
     var data=state.replay
       ? await api("tally?q="+q.id)
@@ -201,10 +201,10 @@ async function castVote(choice){
     state.votes.set(q.id,state.choice);
     if(state.replay)saveReplayProgress();
     state.totals=data.totals;
-    stage("QUESTION "+(state.index+1)+" / "+state.questions.length);
+    stage("Question "+(state.index+1)+" of "+state.questions.length);
     beginPolling();drawAnswers();startAutoAdvance();
   }catch(err){
-    stage("QUESTION "+(state.index+1)+" / "+state.questions.length);toast(err.message);
+    stage("Question "+(state.index+1)+" of "+state.questions.length);toast(err.message);
   }finally{state.busy=false;if(state.choice===null)drawAnswers();}
 }
 async function nextQuestion(){
