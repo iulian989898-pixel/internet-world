@@ -188,8 +188,9 @@ body{
   margin:0 auto 15px;
   color:#f8f9fe;
   text-align:center;
-  font-size:clamp(27px,3.3vw,36px);
-  font-weight:740;
+  font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+  font-size:clamp(27px,3.3vw,37px);
+  font-weight:500;
   line-height:1.28;
   letter-spacing:-.9px;
   text-wrap:balance;
