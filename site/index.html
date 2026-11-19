@@ -1,31 +1,112 @@
 <!doctype html>
-<html lang="ro">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="robots" content="noindex, nofollow" />
-  <title>Internet World — Test conexiune</title>
-  <style>
-    :root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    *{box-sizing:border-box}
-    body{min-height:100svh;margin:0;background:radial-gradient(circle at 50% 15%,#263a43,#0c1015 65%);color:#f1f4f5;display:grid;place-items:center;padding:24px}
-    main{width:min(520px,100%);border:1px solid #334149;border-radius:24px;padding:40px 28px;background:#172027cc;text-align:center;box-shadow:0 22px 80px #0005}
-    .orb{font-size:3.1rem;margin-bottom:15px}
-    h1{font-size:clamp(1.8rem,6vw,2.5rem);letter-spacing:-.04em;margin:0 0 12px}
-    p{color:#b7c6cb;line-height:1.6;margin:10px 0}
-    .status{display:inline-flex;align-items:center;gap:9px;margin-top:20px;padding:10px 16px;background:#1b3933;border:1px solid #3b7567;color:#b6eedc;border-radius:999px;font-weight:600;font-size:.9rem}
-    .dot{width:9px;height:9px;border-radius:50%;background:#79e1b7}
-    small{display:block;margin-top:26px;color:#82969d}
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c101b">
+  <meta name="description" content="20 ridiculous questions. 3 impossible choices. Find out how normal you are compared to the internet.">
+  <meta property="og:title" content="THE INTERNET DECIDES — How Normal Are You?">
+  <meta property="og:description" content="Answer 20 impossible questions and see how your brain compares with the rest of the internet.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="THE INTERNET DECIDES">
+  <title>THE INTERNET DECIDES — How Normal Are You?</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/app.js"></script>
 </head>
 <body>
-  <main>
-    <div class="orb">🌍</div>
-    <h1>Internet World</h1>
-    <p>Prima pagină de test a proiectului.</p>
-    <p>GitHub este pregătit pentru publicarea automată prin Netlify. Macheta site-ului va fi construită ulterior.</p>
-    <div class="status"><span class="dot"></span> Test de conectare</div>
-    <small>Acesta nu este încă site-ul final.</small>
+  <div class="orb orb-one" aria-hidden="true"></div>
+  <div class="orb orb-two" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="The Internet Decides home">
+      <span class="brand-mark">◎</span><span>THE INTERNET<span class="brand-accent"> DECIDES</span></span>
+    </a>
+    <div class="top-right"><span class="live-dot"></span> THE WORLD IS VOTING <span class="top-star">✳</span> <a href="#how" class="how-link">HOW IT WORKS</a></div>
+  </header>
+  <main class="layout">
+    <section class="intro">
+      <div class="eyebrow"><span class="eyebrow-line"></span> THE MOST UNNECESSARY TEST ON THE INTERNET</div>
+      <h1>HOW <em>NORMAL</em><br>ARE YOU<span class="question-mark">?</span></h1>
+      <p>20 absurd questions. 3 impossible choices. One completely unscientific verdict on your brain.</p>
+      <div class="intro-pills">
+        <span>⚡ 20 QUICK QUESTIONS</span><span>🌎 REAL GLOBAL VOTES</span><span>🤫 NO RIGHT ANSWERS</span>
+      </div>
+      <div class="corner-note"><span class="asterisk">✳</span> THIS IS NOT A PERSONALITY TEST.<br>IT'S MUCH MORE RIDICULOUS.</div>
+    </section>
+    <section class="game-shell">
+      <div class="game-topline">
+        <span class="quiz-status"><span class="status-pip"></span> THE NORMALITY EXPERIMENT</span>
+        <span id="stageLabel">LOADING...</span>
+      </div>
+      <div class="progress-track"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
+      <div id="quizScreen" class="quiz-screen" hidden>
+        <div class="question-meta"><span id="categoryLabel" class="category"></span><span class="three-options">PICK ONE. NO TAKEBACKS.</span></div>
+        <h2 id="questionTitle"></h2>
+        <div id="answers" class="answers"></div>
+        <div id="afterVote" class="after-vote" hidden>
+          <div class="vote-note"><span id="voteMessage"></span><span id="totalVotes" class="count-text"></span></div>
+          <p class="data-note">🟢 Most popular · 🔵 Middle · 🔴 Least popular. Live results refresh every 20 seconds.</p>
+          <button id="nextButton" class="primary-button" type="button">NEXT QUESTION <span>↗</span></button>
+        </div>
+        <p id="hintText" class="hint">THE INTERNET'S ANSWERS STAY HIDDEN UNTIL YOU VOTE.</p>
+      </div>
+      <div id="resultScreen" class="result-screen" hidden>
+        <div class="finish-eyebrow">✳ EXPERIMENT COMPLETE ✳</div>
+        <h2>THE VERDICT IS IN.</h2>
+        <p class="results-sub">Here is your official, absolutely unofficial normality score.</p>
+        <div id="resultCard" class="result-card">
+          <div class="result-card-head"><span>THE INTERNET DECIDES</span><span>RESULT / 001</span></div>
+          <div class="result-number"><strong id="scoreNumber">0</strong><span>%</span></div>
+          <div class="result-track"><div id="resultFill" style="width:0%"></div></div>
+          <div id="tierTitle" class="tier-title"></div>
+          <p id="matchCopy" class="match-copy"></p>
+          <p id="rarityCopy" class="rarity-copy"></p>
+        </div>
+        <p class="score-footnote">* “Normality” means how often you agreed with the most popular answer. It is not a psychological or medical assessment.</p>
+        <div class="share-group">
+          <button id="copyResult" class="primary-button" type="button">COPY MY RESULT <span>↗</span></button>
+          <button id="shareResult" class="secondary-button" type="button">SHARE RESULT <span>↗</span></button>
+          <div class="share-platforms" aria-label="Share to social networks">
+            <button id="shareWhatsApp" type="button">WHATSAPP ↗</button>
+            <button id="shareX" type="button">X / TWITTER ↗</button>
+            <button id="shareFacebook" type="button">FACEBOOK ↗</button>
+          </div>
+          <p class="share-help">Your personal result link is permanent. Friends can take the same 20-question challenge.</p>
+        </div>
+      </div>
+      <div id="sharedScreen" class="shared-screen" hidden>
+        <div class="finish-eyebrow">SOMEONE SENT YOU THEIR RESULTS</div>
+        <h2 id="sharedTitle">A VERY QUESTIONABLE BRAIN.</h2>
+        <div id="sharedCard" class="result-card">
+          <div class="result-card-head"><span>THE INTERNET DECIDES</span><span>SAVED RESULT</span></div>
+          <div class="result-number"><strong id="sharedScore">0</strong><span>%</span></div>
+          <div class="result-track"><div id="sharedFill" style="width:0%"></div></div>
+          <div id="sharedTier" class="tier-title"></div>
+          <p id="sharedMatches" class="match-copy"></p>
+          <p id="sharedRarity" class="rarity-copy"></p>
+        </div>
+        <button id="startChallenge" class="primary-button" type="button">FIND OUT YOUR SCORE <span>↗</span></button>
+        <p class="data-note">This is their saved score from the day they completed the challenge. Global votes may have changed since then.</p>
+      </div>
+      <div id="errorScreen" class="error-screen" hidden>
+        <div class="error-emoji">🛠️</div>
+        <h2>THE INTERNET IS THINKING.</h2>
+        <p id="errorText">We can't reach the voting database right now. No votes have been submitted.</p>
+        <button id="retryButton" class="primary-button" type="button">TRY AGAIN <span>↗</span></button>
+      </div>
+      <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div><p>CONNECTING TO THE INTERNET'S BRAINS...</p></div>
+      <div class="game-bottomline"><span>NO ACCOUNT. NO JUDGMENT. PROBABLY.</span><span>© 2026 INTERNET WORLD</span></div>
+    </section>
   </main>
+  <section id="how" class="how-section" aria-label="How the game works">
+    <div class="section-heading"><span>THE VERY SIMPLE RULES</span><span>01 / 02 / 03</span></div>
+    <div class="how-grid">
+      <div><div class="step-icon">01 ↗</div><h3>CHOOSE</h3><p>Pick one of three ridiculous answers. Trust your gut. Or don't.</p></div>
+      <div><div class="step-icon">02 ↗</div><h3>DISCOVER</h3><p>See real global percentages immediately after every vote.</p></div>
+      <div><div class="step-icon">03 ↗</div><h3>EXPOSE YOURSELF</h3><p>After 20 answers, get a shareable normality score and challenge your friends.</p></div>
+    </div>
+  </section>
+  <footer><span>MADE FOR CURIOUS HUMANS & CONFUSED ALIENS.</span><div><a href="/legal.html">LEGAL & PRIVACY</a><span>•</span><span>ENTERTAINMENT ONLY</span></div></footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

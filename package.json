@@ -1,0 +1,16 @@
+{
+  "name": "the-internet-decides",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A collective twenty-question browser quiz on Netlify.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@netlify/database": "^2.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
